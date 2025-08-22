@@ -1,75 +1,355 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mutual Fund Assistant</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LiveAssist AI — Real-time Negotiation Coach</title>
+<style>
+  :root{
+    --bg1:#070a16; --bg2:#0b0f24; --glass:rgba(255,255,255,.06);
+    --stroke:rgba(255,255,255,.12); --txt:#eef1ff; --muted:#b9c1dd;
+    --g1:#7c5cff; --g2:#22d3ee; --ok:#00ffa7; --err:#ff5f73; --warn:#ffd166;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; color:var(--txt); font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Arial, sans-serif;
+    background: radial-gradient(1200px 700px at 15% -10%, #1a1644 0%, transparent 60%),
+                radial-gradient(900px 600px at 120% 10%, #0a4050 0%, transparent 60%),
+                linear-gradient(180deg, var(--bg1), var(--bg2));
+    overflow-x:hidden;
+  }
+
+  /* floating gradient blobs */
+  .orb{position:fixed; width:46vmax; height:46vmax; border-radius:50%; filter:blur(85px); z-index:-2; opacity:.9}
+  .orb.a{left:-12%; top:-12%; background:radial-gradient(closest-side, rgba(124,92,255,.32), transparent 70%); animation:float1 22s ease-in-out infinite alternate;}
+  .orb.b{right:-10%; top:-6%; background:radial-gradient(closest-side, rgba(34,211,238,.30), transparent 70%); animation:float2 28s ease-in-out infinite alternate;}
+  .orb.c{left:-18%; bottom:-14%; background:radial-gradient(closest-side, rgba(0,255,167,.22), transparent 70%); animation:float3 26s ease-in-out infinite alternate;}
+  @keyframes float1{from{transform:translate(0,0)} to{transform:translate(5%,8%)}}
+  @keyframes float2{from{transform:translate(0,0)} to{transform:translate(-7%,4%)}}
+  @keyframes float3{from{transform:translate(0,0)} to{transform:translate(6%,-6%)}}
+
+  /* header */
+  header{
+    position:sticky; top:0; z-index:10; backdrop-filter:blur(10px);
+    background:linear-gradient(180deg, rgba(7,10,22,.7), rgba(7,10,22,0));
+    border-bottom:1px solid var(--stroke)
+  }
+  .nav{max-width:1200px; margin:auto; padding:14px 22px; display:flex; gap:14px; align-items:center; justify-content:space-between}
+  .brand{display:flex; gap:12px; align-items:center}
+  .logo{
+    font-weight:900; letter-spacing:.3px; font-size:1.05rem;
+    background:linear-gradient(90deg,var(--g1),var(--g2)); -webkit-background-clip:text; background-clip:text; color:transparent
+  }
+  .tag{border:1px solid var(--stroke); border-radius:999px; padding:5px 10px; color:var(--muted); font-size:.78rem}
+
+  /* main layout */
+  .grid{max-width:1200px; margin:26px auto; padding:0 22px; display:grid; grid-template-columns:1.05fr .95fr; gap:20px}
+  @media (max-width:1000px){ .grid{grid-template-columns:1fr} }
+
+  .card{
+    position:relative;
+    background:var(--glass); border:1px solid var(--stroke); border-radius:20px; padding:18px 18px 20px;
+    box-shadow:0 18px 40px rgba(0,0,0,.35); overflow:hidden
+  }
+  .card::before{ /* animated sheen */
+    content:""; position:absolute; inset:-2px; background:
+      conic-gradient(from 180deg at 50% 0%, rgba(124,92,255,.15), rgba(34,211,238,.12), transparent 40%);
+    filter:blur(22px); opacity:.35; animation:spin 16s linear infinite; z-index:-1;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .card h2{margin:6px 0 12px; font-size:1.12rem}
+
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  input, select{
+    padding:12px 14px; border-radius:12px; border:1px solid var(--stroke);
+    background:rgba(255,255,255,.05); color:var(--txt); outline:none; min-width:220px;
+  }
+  .btn{
+    padding:12px 14px; border:none; border-radius:12px; font-weight:800; cursor:pointer;
+    transition:transform .06s ease, box-shadow .2s ease, filter .2s ease;
+    user-select:none
+  }
+  .btn:active{transform:translateY(1px)}
+  .primary{background:linear-gradient(90deg,var(--g1),var(--g2)); color:#0a0d18; box-shadow:0 8px 22px rgba(124,92,255,.35)}
+  .danger{background:var(--err); color:#fff}
+  .ghost{background:rgba(255,255,255,.06); border:1px solid var(--stroke); color:var(--txt)}
+  .muted{color:var(--muted); font-size:.95rem}
+
+  .panel{min-height:170px; border:1px dashed var(--stroke); border-radius:14px; padding:12px; background:rgba(255,255,255,.03); overflow:auto}
+  .panel.small{min-height:110px}
+
+  .label{font-size:.86rem; color:var(--muted); margin:10px 0 6px}
+  .bubble{padding:10px 12px; border-radius:12px; margin:8px 0; max-width:95%; animation:pop .18s ease}
+  .me{background:rgba(124,92,255,.16); border:1px solid rgba(124,92,255,.36)}
+  .ai{background:rgba(34,211,238,.14); border:1px solid rgba(34,211,238,.34)}
+  @keyframes pop{from{transform:scale(.98); opacity:.6} to{transform:scale(1); opacity:1}}
+
+  /* VU meter */
+  .vu{height:12px; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid var(--stroke); overflow:hidden}
+  .vu > span{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--ok),var(--g2)); transition:width .10s linear}
+
+  footer{max-width:1200px; margin:26px auto 60px; padding:0 22px; color:var(--muted); text-align:center}
+  .ok{color:var(--ok)} .err{color:var(--err)} .warn{color:var(--warn)}
+</style>
 </head>
 <body>
-    <header class="navbar">
-        <div class="logo">Mutual Fund Assistant</div>
-        <nav>
-            <ul>
-                <li><a href="#analysis">Analysis</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
-        </nav>
-    </header>
+  <div class="orb a"></div><div class="orb b"></div><div class="orb c"></div>
 
-    <div class="container">
-        <h1>Welcome to the Mutual Fund Assistant</h1>
-        <p>Analyze and explore mutual funds with ease. Our tool provides detailed insights to help you make informed decisions.</p>
-
-        <!-- Analysis Section to display output -->
-        <div id="analysis" class="response-container">
-        <div class="response">
-            <h2>Analysis Complete!</h2>
-            <ul>
-                <li>I'd be happy to help you with some scheme suggestions.
-
-Before I do that</li><li>may I ask what you're looking for in a scheme? Are you looking for something low-risk and stable</li><li>or are you willing to take on a bit more risk for the potential of higher returns?
-
-Also</li><li>are you looking for a scheme that focuses on a specific asset class</li><li>such as equity or debt</li><li>or are you open to a mix of both?
-
-Lastly</li><li>what is your investment horizon? Are you looking to invest for a short-term goal</li><li>such as a vacation</li><li>or a long-term goal</li><li>such as retirement?
-
-Once I have a better understanding of your requirements</li><li>I can suggest some schemes that may be a good fit for you.
-
-(By the way</li><li>I'll be speaking in a neutral tone</li><li>as I'm a mutual fund analyst</li><li>not a salesperson. My goal is to provide you with information and insights that will help you make an informed decision.)</li>
-            </ul>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
-        </div>
+  <header>
+    <div class="nav">
+      <div class="brand">
+        <div class="logo">🎙️ LiveAssist AI</div>
+        <div class="tag">Real-time Recommendations • Groq LLaMA</div>
+      </div>
+      <div class="tag">Privacy-first • Local Capture</div>
     </div>
+  </header>
 
-    <footer class="footer">
-        <p>&copy; 2025 Mutual Fund Assistant. All rights reserved.</p>
-        <p>Follow us on <a href="#">LinkedIn</a> | <a href="#">Twitter</a> | <a href="#">Facebook</a></p>
-    </footer>
+  <main class="grid">
+    <!-- Left: capture + transcript -->
+    <section class="card">
+      <h2>Start your meeting</h2>
+      <p class="muted">Enter a name, choose the microphone (<b>Virtual Cable / Stereo Mix</b>), click <b>Start</b>, allow mic access, then speak normally.</p>
 
-    <script src="script.js"></script>
+      <div class="row" style="margin:10px 0 6px">
+        <input id="username" placeholder="Your name (e.g., Aisha / Sales Lead)">
+        <select id="micSelect" title="Choose microphone"></select>
+        <button id="startBtn" class="btn primary">🚀 Start</button>
+        <button id="endBtn" class="btn danger">🛑 End</button>
+        <button id="clearBtn" class="btn ghost">🧹 Clear</button>
+      </div>
+
+      <div class="row" style="gap:8px; align-items:center; margin:8px 0">
+        <div class="muted" id="status">Idle.</div>
+      </div>
+
+      <div class="label">Input level</div>
+      <div class="vu"><span id="vuFill"></span></div>
+
+      <div style="margin-top:12px">
+        <div class="label">Live Transcript</div>
+        <div id="transcript" class="panel"></div>
+      </div>
+    </section>
+
+    <!-- Right: summary + chat -->
+    <section class="card">
+      <h2>Meeting Summary</h2>
+      <div id="summary" class="panel small">[No summary yet]</div>
+      <div class="row" style="margin-top:10px">
+        <button id="downloadBtn" class="btn ghost">⬇️ Download Summary</button>
+      </div>
+
+      <div style="margin-top:18px">
+        <div class="label">Mini Chat (context-aware)</div>
+        <div id="chatBox" class="panel small"></div>
+        <div class="row" style="margin-top:10px">
+          <input id="chatInput" placeholder="Ask: best pricing? risks? next steps?">
+          <button id="chatSend" class="btn primary">Send</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>© 2025 LiveAssist AI — Built for speed & clarity.</footer>
+
+<script>
+/* ====== CONFIG ====== */
+const BASE = "http://127.0.0.1:5000";   // Flask backend URL
+
+/* ====== DOM ====== */
+let recognition = null, recognizing = false, currentStream = null, analyser, dataArray;
+const transcriptEl = document.getElementById("transcript");
+const summaryEl = document.getElementById("summary");
+const statusEl = document.getElementById("status");
+const chatBox = document.getElementById("chatBox");
+const micSelect = document.getElementById("micSelect");
+const vuFill = document.getElementById("vuFill");
+
+/* ====== Utils ====== */
+async function postJSON(url, body){
+  const res = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body||{})});
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  return res.json();
+}
+function addTranscriptLine(text){
+  const div = document.createElement("div");
+  div.textContent = text;
+  transcriptEl.appendChild(div);
+  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+}
+function addBubble(text, who="ai"){
+  const div = document.createElement("div");
+  div.className = "bubble " + (who==="me" ? "me" : "ai");
+  div.textContent = text;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+/* ====== Mic list & VU Meter ====== */
+async function listMics(){
+  try{
+    await navigator.mediaDevices.getUserMedia({audio:true});
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    micSelect.innerHTML = "";
+    let count = 1;
+    for (const d of devices){
+      if (d.kind === "audioinput"){
+        const opt = document.createElement("option");
+        opt.value = d.deviceId;
+        opt.textContent = d.label || `Microphone ${count++}`;
+        micSelect.appendChild(opt);
+      }
+    }
+  }catch(e){
+    console.error(e);
+    alert("Microphone permission denied. Allow access and reload.");
+  }
+}
+function setupVUMeter(stream){
+  if (!stream) return;
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const src = ac.createMediaStreamSource(stream);
+  analyser = ac.createAnalyser();
+  analyser.fftSize = 512;
+  const bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+  src.connect(analyser);
+  function draw(){
+    requestAnimationFrame(draw);
+    analyser.getByteTimeDomainData(dataArray);
+    let peak = 0;
+    for (let i=0;i<dataArray.length;i++){
+      const v = Math.abs(dataArray[i]-128)/128;
+      if (v>peak) peak=v;
+    }
+    vuFill.style.width = Math.min(100, Math.round(peak*120)) + "%";
+  }
+  draw();
+}
+async function openSelectedMic(){
+  const id = micSelect.value;
+  try{
+    if (currentStream){ currentStream.getTracks().forEach(t=>t.stop()); }
+    currentStream = await navigator.mediaDevices.getUserMedia({audio:{deviceId:id?{exact:id}:undefined}});
+    setupVUMeter(currentStream);
+  }catch(e){
+    console.warn("Unable to open selected mic:", e);
+  }
+}
+
+/* ====== SpeechRecognition ====== */
+function ensureRecognition(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR){ alert("Your browser does not support Web Speech API. Use Chrome."); return null; }
+  if (!recognition){
+    recognition = new SR();
+    recognition.lang = "en-US";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onstart = ()=>{ recognizing = true; };
+    recognition.onend   = ()=>{ if (recognizing) recognition.start(); }; // auto-restart
+    recognition.onerror = (e)=>{ console.warn("Speech error:", e.error); };
+
+    recognition.onresult = async (ev)=>{
+      let finalChunk = "";
+      for (let i=ev.resultIndex; i<ev.results.length; i++){
+        const r = ev.results[i];
+        if (r.isFinal) finalChunk += r[0].transcript + " ";
+      }
+      if (finalChunk.trim()){
+        addTranscriptLine(finalChunk.trim());
+        try{ await postJSON(`${BASE}/transcribe`, {text: finalChunk.trim()}); }catch(e){}
+      }
+    };
+  }
+  return recognition;
+}
+
+/* ====== UI Actions ====== */
+document.getElementById("startBtn").addEventListener("click", async ()=>{
+  const name = (document.getElementById("username").value||"").trim();
+  if (!name){ alert("Please enter your name."); return; }
+
+  try{
+    await postJSON(`${BASE}/start`, {username: name});
+  }catch(e){
+    alert(`Cannot reach backend at ${BASE}. Make sure groq_integration.py is running.`);
+    return;
+  }
+
+  await openSelectedMic();
+
+  const r = ensureRecognition();
+  if (!r) return;
+  r.start();
+  recognizing = true;
+  statusEl.innerHTML = `<span class="ok">✅ Listening…</span> <span class="muted">(Use Virtual Cable / Stereo Mix to capture both sides)</span>`;
+});
+
+document.getElementById("endBtn").addEventListener("click", async ()=>{
+  if (recognition && recognizing){ recognizing=false; recognition.stop(); }
+  statusEl.innerHTML = `<span class="warn">⏳ Generating summary…</span>`;
+  summaryEl.textContent = "Generating…";
+  try{
+    const data = await postJSON(`${BASE}/end`, {});
+    let s = data.summary || "";
+    if (s.startsWith("[AUTH]")){
+      s = "Your Groq API key is invalid. Open groq_integration.py, paste a valid key, restart the backend, and try again.";
+    } else if (s.startsWith("[CONFIG]")){
+      s = "Groq API key missing. Open groq_integration.py, paste your key, restart the backend.";
+    } else if (s.startsWith("[Groq Error]")){
+      s = "Groq service error. Try again, or check your internet/key.";
+    }
+    summaryEl.textContent = s || "No summary returned.";
+    statusEl.innerHTML = `<span class="ok">✅ Summary ready.</span>`;
+  }catch(e){
+    console.error(e);
+    summaryEl.textContent = "Error getting summary from backend.";
+    statusEl.innerHTML = `<span class="err">⚠️ Summary failed.</span>`;
+  }
+});
+
+document.getElementById("clearBtn").addEventListener("click", ()=>{
+  transcriptEl.innerHTML = "";
+  summaryEl.textContent = "[No summary yet]";
+  chatBox.innerHTML = "";
+  statusEl.textContent = "Idle.";
+});
+
+document.getElementById("chatSend").addEventListener("click", async ()=>{
+  const input = document.getElementById("chatInput");
+  const q = (input.value||"").trim();
+  if (!q) return;
+  addBubble(q, "me");
+  input.value="";
+  try{
+    const data = await postJSON(`${BASE}/chat`, {query:q});
+    let a = data.reply || "[No reply]";
+    if (a.startsWith("[AUTH]")) a = "Invalid Groq API key. Paste a valid key in the backend and retry.";
+    if (a.startsWith("[CONFIG]")) a = "Groq API key missing. Paste your key in the backend.";
+    addBubble(a, "ai");
+  }catch(e){
+    addBubble("Backend not reachable. Is groq_integration.py running?", "ai");
+  }
+});
+
+/* Download summary as .txt */
+document.getElementById("downloadBtn").addEventListener("click", ()=>{
+  const txt = summaryEl.textContent.trim();
+  if (!txt || txt === "[No summary yet]"){ alert("No summary to download yet."); return; }
+  const blob = new Blob([txt], {type:"text/plain;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `LiveAssist_Summary_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.txt`;
+  document.body.appendChild(a); a.click(); a.remove();
+});
+
+/* init */
+listMics();
+navigator.mediaDevices?.addEventListener?.("devicechange", listMics);
+</script>
 </body>
 </html>
