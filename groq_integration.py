@@ -5,10 +5,9 @@ from datetime import datetime
 
 # ==== CONFIG ====
 import os
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-  # <-- REPLACE with your key from https://console.groq.com
-GROQ_MODEL = "llama3-8b-8192"  # or "llama-3.1-8b-instant"
 
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = "llama3-8b-8192"  
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -123,4 +122,4 @@ def chat():
 
 if __name__ == "__main__":
     # pip install flask flask-cors groq
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)
