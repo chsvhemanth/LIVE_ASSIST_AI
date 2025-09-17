@@ -122,14 +122,9 @@ def chat():
     return jsonify({"reply": reply})
 
 
-@app.route("/")
-def index():
-    return send_from_directory(os.path.dirname(__file__), "assistant.html")
-
-
-
 if __name__ == "__main__":
     # pip install flask flask-cors groq
     app.run(host="0.0.0.0", port=5000, debug=False)
+
 
 
